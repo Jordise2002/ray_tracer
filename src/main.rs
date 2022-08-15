@@ -1,10 +1,18 @@
 use std::io::{stderr, Write};
+use crate::hitable_list::HitableList;
 use crate::vec3::{Color, Point3, Vec3};
 use crate::ray::Ray;
+use sphere::Sphere;
+use crate::hitable::Hitable;
+
 mod vec3;
 mod ray;
 mod hitable;
 mod sphere;
+mod hitable_list;
+mod camera;
+
+const MAX_FLOAT: f64 = 10000000.0;
 
 fn hit_sphere(center: Vec3, radius: f64, r: &Ray) -> f64{
     let oc = r.origin() - center;
@@ -20,17 +28,19 @@ fn hit_sphere(center: Vec3, radius: f64, r: &Ray) -> f64{
     }
 }
 
-fn color(r: &Ray) -> Color {
-    let hit =  hit_sphere(Point3::new(0., 0.,  -1.), 0.5, r);
-    if hit > 0. {
-        let n = (r.point_at_parameter(hit) - Point3::new(0., 0., -1.)).normalized();
-        return 0.5 * Color::new(n.x() + 1., n.y() + 1., n.z() + 1.);
+fn color(r: &Ray, world_list: &HitableList) -> Color {
+    let hit = world_list.hit(r, 0.,MAX_FLOAT );
+    match(hit) {
+        Some(rec)=>{
+            0.5 * Vec3::new(rec.get_normal().x() + 1., rec.get_normal().y() + 1., rec.get_normal().z() + 1.)
+        },
+        None => {
+            let unit_direction = r.direction().normalized();
+            let t = 0.5 * (unit_direction.y() + 1.);
+            (1. - t) * Color::new(1.,1.,1.) + t * Color::new(0.5, 0.7, 1.)
+        }
     }
-    let unit_direction = r.direction().normalized();
-    let t =  0.5 * (unit_direction.y() + 1.0);
-    Color::new(1.,1.,1.) * (1.0 -t) + Color::new(0.5, 0.7,1.) * t
 }
-
 fn main() {
     //IMAGE
     const ASPECT_RATIO : f64 = 16.0 / 9.0;
@@ -47,6 +57,10 @@ fn main() {
     let vertical = Vec3::new(0., viewport_height, 0.);
     let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::new(0., 0., focal_length);
 
+    //OBJECTS
+    let mut world_list = HitableList::new();
+    world_list.push(Box::new(Sphere::new(Point3::new(0., 0., -1.), 0.5)));
+    world_list.push(Box::new(Sphere::new(Point3::new(0.,-100.5,-1.), 100.0)));
     println!("P3");
     println!("{} {}", IMAGE_WIDTH, IMAGE_HEIGHT);
     println!("255");
@@ -61,7 +75,7 @@ fn main() {
 
             let r = Ray::new(origin, lower_left_corner + u * horizontal + v * vertical - origin);
 
-            let pixel_color = color(&r);
+            let pixel_color = color(&r, &world_list);
 
             println!("{}", pixel_color.format_color())
         }
