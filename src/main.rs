@@ -4,6 +4,8 @@ use crate::vec3::{Color, Point3, Vec3};
 use crate::ray::Ray;
 use sphere::Sphere;
 use crate::hitable::Hitable;
+use rand::{Rng, thread_rng};
+use crate::camera::Camera;
 
 mod vec3;
 mod ray;
@@ -46,6 +48,7 @@ fn main() {
     const ASPECT_RATIO : f64 = 16.0 / 9.0;
     const IMAGE_WIDTH:u64 = 256;
     const IMAGE_HEIGHT:u64 = ((IMAGE_WIDTH as f64) / ASPECT_RATIO) as u64;
+    const SAMPLES_PER_PIXEL:u64 = 100;
 
     //CAMERA
     let viewport_height = 2.0;
@@ -57,6 +60,8 @@ fn main() {
     let vertical = Vec3::new(0., viewport_height, 0.);
     let lower_left_corner = origin - horizontal / 2.0 - vertical / 2.0 - Vec3::new(0., 0., focal_length);
 
+    let camera = Camera::new(origin,lower_left_corner,vertical, horizontal);
+
     //OBJECTS
     let mut world_list = HitableList::new();
     world_list.push(Box::new(Sphere::new(Point3::new(0., 0., -1.), 0.5)));
@@ -65,19 +70,24 @@ fn main() {
     println!("{} {}", IMAGE_WIDTH, IMAGE_HEIGHT);
     println!("255");
 
+    //Initialize RNG
+    let mut rng = thread_rng();
     for j in (0..IMAGE_HEIGHT).rev() {
         eprint!("\rScanlines Remaining: {:3}", IMAGE_HEIGHT -j -1);
         stderr().flush().unwrap();
 
         for i in 0..IMAGE_WIDTH {
-            let u = (i as f64) / ((IMAGE_WIDTH - 1) as f64);
-            let v = (j as f64) / ((IMAGE_HEIGHT - 1) as f64);
+            let mut col = Color::new(0.,0.,0.);
+            for s in 0..SAMPLES_PER_PIXEL {
+                let u = (i as f64 + rng.gen::<f64>()) / (IMAGE_WIDTH -1) as f64;
+                let v = (j as f64 + rng.gen::<f64>()) / (IMAGE_HEIGHT -1) as f64;
+                let r = camera.get_ray(u,v);
+                col += color(&r, &world_list);
+            }
 
-            let r = Ray::new(origin, lower_left_corner + u * horizontal + v * vertical - origin);
+            col /= SAMPLES_PER_PIXEL as f64;
 
-            let pixel_color = color(&r, &world_list);
-
-            println!("{}", pixel_color.format_color())
+            println!("{}", col.format_color())
         }
     }
 }
