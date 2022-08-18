@@ -10,7 +10,7 @@ impl Hitable for HitableList {
 
         for object in self {
             if let Some(rec) = object.hit(r, t_min, closest_so_far) {
-                closest_so_far = rec.getT();
+                closest_so_far = rec.get_t();
                 aux_hit_record = Some(rec);
             }
         }

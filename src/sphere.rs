@@ -1,16 +1,19 @@
 use crate::hitable::{Hitable, HitRecord};
 use crate::{Point3, Ray};
+use std::rc::Rc;
+use crate::material::Material;
 
-#[derive(Copy, Clone)]
+
 pub struct Sphere{
     center: Point3,
-    radius: f64
+    radius: f64,
+    material: Rc<dyn Material>
 }
 
 impl Sphere {
-    pub fn new(center: Point3, radius: f64) -> Sphere {
+    pub fn new(center: Point3, radius: f64, material: Rc<dyn Material>) -> Sphere {
         Sphere {
-            center, radius
+            center, radius, material
         }
     }
 }
@@ -19,33 +22,30 @@ impl Hitable for Sphere {
     fn hit(&self,r: &Ray, t_min: f64, t_max: f64) -> Option<HitRecord>
     {
         let oc = r.origin() - self.center;
-        let a = r.direction().dot(r.direction());
-        let b = oc.dot(r.direction());
-        let c = oc.dot(oc) - self.radius * self.radius;
-        let discriminant = b * b - a * c;
+        let a = r.direction().squared_length();
+        let half_b = oc.dot(r.direction());
+        let c = oc.squared_length() - self.radius.powi(2);
 
-        if discriminant > 0. {
-            let temp = (-b - (b*b - a*c)).sqrt() / a;
-            if temp < t_max && temp > t_min {
-                let hit_record = HitRecord::new(
-                    temp,
-                    r.point_at_parameter(temp),
-                    (r.point_at_parameter(temp) - self.center) / self.radius
-                );
-                return Option::Some(hit_record);
-            }
-            let temp = (-b + (b*b - a * c).sqrt()) /a;
-            if temp < t_max && temp > t_min {
-                let hit_record = HitRecord::new(
-                    temp,
-                    r.point_at_parameter(temp),
-                    (r.point_at_parameter(temp) - self.center) / self.radius
-                        );
-                return Option::Some(hit_record);
-            }
-        };
-        Option::None
+        let discriminant = half_b.powi(2) - a * c;
 
+        if discriminant < 0.0 {
+            return None;
+        }
+
+        let sqrtd = discriminant.sqrt();
+        let mut root = (-half_b -sqrtd) / a;
+        if root < t_min || t_max < root {
+            root = (-half_b + sqrtd) / a;
+            if root < t_min || t_max < root {
+                return None;
+            }
+        }
+
+
+        let mut rec = HitRecord::new(root, r.point_at_parameter(root), (r.point_at_parameter(root)-self.center)/self.radius, false, self.material.clone());
+        let outward_normal = (rec.get_point() - self.center) / self.radius;
+        rec.set_face_normal(r, outward_normal);
+        Some(rec)
     }
 }
 

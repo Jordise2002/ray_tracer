@@ -2,6 +2,8 @@
 use std::ops;
 use std::fmt;
 use std::fmt::Display;
+use std::ops::Range;
+use rand::{Rng, thread_rng};
 
 #[derive(Copy, Clone)]
 pub struct Vec3{
@@ -28,6 +30,40 @@ impl Vec3{
     pub fn z(self) -> f64 {
         self[2]
     }
+    fn random_vector(r: Range <f64>) -> Vec3
+    {
+        let mut rng = thread_rng();
+        Vec3::new(rng.gen_range(r.clone()), rng.gen_range(r.clone()), rng.gen_range(r.clone()))
+    }
+
+    pub fn random_in_unit_sphere() -> Point3 {
+        loop {
+            let p = Vec3::random_vector(-1.0..1.0);
+            if p.length() < 1.0
+            {
+                return p;
+            }
+        }
+    }
+
+    pub fn random_in_hemisphere() -> Point3 {
+        let in_unit = Self::random_in_unit_sphere();
+        if in_unit.squared_length() > 0. {
+            in_unit
+        }
+        else {
+            -1. * in_unit
+        }
+    }
+
+    pub fn near_zero(self) -> bool {
+        let eps:f64 = 1.0e-8;
+        self[0] < eps && self[1] < eps && self[2] < eps
+    }
+
+    pub fn reflect(self, n: Vec3) -> Vec3 {
+        self - 2. * self.dot(n) * n
+    }
 
     pub fn dot(self, other: Vec3) -> f64 {
         self[0] * other[0] + self[1] * other[1] + self[2] * other[2]
@@ -37,6 +73,9 @@ impl Vec3{
         self.dot(self).sqrt()
     }
 
+    pub fn squared_length(self) -> f64 {
+        self.dot(self)
+    }
     pub fn cross(self, other: Vec3) -> Vec3 {
         Vec3{
             e : [
@@ -51,10 +90,17 @@ impl Vec3{
         self / self.length()
     }
 
-    pub fn format_color(self) -> String {
-        format!("{} {} {}", (255.99 * self[0]) as u64,
-                (255.99 * self[1]) as u64,
-                (255.99 * self[2]) as u64)
+    pub fn format_color(self, samples_per_pixel:u64) -> String {
+        format!("{} {} {}", (256.0 * (self[0] / (samples_per_pixel as f64)).sqrt().clamp(0.0, 0.999)) as u64,
+                             (256.0 * (self[1] / (samples_per_pixel as f64)).sqrt().clamp(0.0, 0.999)) as u64,
+                              (256.0 * (self[2] / (samples_per_pixel as f64)).sqrt().clamp(0.0, 0.999)) as u64)
+    }
+
+    pub fn refracted(self, normal: Vec3, ni_over_nt: f64) -> Vec3 {
+        let cos_theta = ((-1.0) * self).dot(normal).min(1.0);
+        let r_out_perp = ni_over_nt * (self + cos_theta * normal);
+        let r_out_parallel = (-1. - r_out_perp.length().powi(2)).abs().sqrt() * normal;
+        r_out_perp * r_out_parallel
     }
 }
 
@@ -140,7 +186,12 @@ impl ops::Mul<Vec3> for f64 {
         }
     }
 }
-
+impl ops::Mul<Vec3> for Vec3 {
+    type Output = Vec3;
+    fn mul(self, rhs: Vec3) -> Self::Output {
+        Vec3::new(self.x() * rhs.x(), self.y() * rhs.y(), self.z() * rhs.z())
+    }
+}
 impl ops::Div<f64> for Vec3 {
     type Output = Vec3;
 
