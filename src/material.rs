@@ -1,3 +1,4 @@
+use rand::Rng;
 use crate::hitable::HitRecord;
 use crate::{Color, Ray, Vec3};
 
@@ -61,14 +62,20 @@ pub struct Dielectric {
 }
 
 impl Dielectric{
-    fn new(ri: f64) -> Dielectric {
+    pub fn new(ri: f64) -> Dielectric {
         Dielectric {
             ri
         }
     }
+    fn reflectance(cosine:f64, ref_idx:f64) -> f64 {
+        let r0 = ((1.0-ref_idx) / (1.0 + ref_idx)).powi(2);
+        r0 + (1.0 - r0) * (1.0 - cosine).powi(5)
+    }
 }
 
 impl Material for Dielectric {
+
+
     fn scatter(&self, r: &Ray, hit_record: &HitRecord) -> Option<(Color, Ray)> {
         let refraction_ratio = if hit_record.get_front_face() {
             1.0 / self.ri
@@ -76,10 +83,25 @@ impl Material for Dielectric {
         else {
             self.ri
         };
+
         let unit_direction = r.direction().normalized();
-        let refracted = unit_direction.refracted(hit_record.get_normal(), refraction_ratio);
-        let scatered = Ray::new(hit_record.get_point(), refracted);
-        Some((Color::new(1.,1.,1.), scatered))
+        let cos_theta = ((-1.0) * unit_direction).dot(hit_record.get_normal()).min(1.0);
+        let sin_theta = (1.0 - cos_theta.powi(2)).sqrt();
+
+        let mut rng = rand::thread_rng();
+        let cannot_refract = refraction_ratio * sin_theta > 1.0;
+        let will_reflect = rng.gen::<f64>() < Self::reflectance(cos_theta, refraction_ratio);
+
+        let direction = if cannot_refract || will_reflect {
+            unit_direction.reflect(hit_record.get_normal())
+        }
+        else {
+            unit_direction.refract(hit_record.get_normal(), refraction_ratio)
+        };
+
+        let scattered = Ray::new(hit_record.get_point(), direction);
+
+        Some((Color::new(1.,1.,1.), scattered))
 
     }
 }
