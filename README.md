@@ -5,6 +5,6 @@ I made this attempt as a summer project to get some experience with Rust. This i
 
 ![AnyConv com__output](https://user-images.githubusercontent.com/80289256/186730495-4a44da09-5ccc-437f-97ec-85e66f4bf024.jpeg)
 
-I used this rust adaptation of the Ray Tracing in One Weekend as reference.
+I used this rust adaptation of the Ray Tracing in One Weekend book as reference.
 
  https://misterdanb.github.io/raytracinginrust/
